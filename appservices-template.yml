@@ -1,0 +1,88 @@
+# azure-pipelines.yml (universal wrapper)
+# - does NOT checkout self
+# - stages TF code from the templates repo into $(System.DefaultWorkingDirectory)\workingdir
+# - injects the <env>.tfvars automatically
+# - reuses your existing terraform-template.yml (which already has Plan + Apply)
+
+resources:
+  repositories:
+    - repository: tf_templates
+      type: git
+      name: <ProjectName>/<TemplatesRepo>     # e.g., Infra/Templates
+      ref: refs/heads/main
+
+parameters:
+  - name: environment
+    type: string
+    default: dev
+    values: [dev, qa, prod]
+
+  - name: app
+    type: string
+    default: webapp01
+
+  # Where the TF code lives inside the templates repo
+  - name: subpath
+    type: string
+    default: terraform-templates/appservices   # keeps the “appservices” layout you showed
+
+  # Backend / svc conn (optional; keep same names your base template expects)
+  - name: service_connection_name
+    type: string
+    default: <Your-Service-Connection>
+  - name: backend_rg
+    type: string
+    default: tfstate-rg
+  - name: backend_storage
+    type: string
+    default: tfstateprod
+  - name: backend_container
+    type: string
+    default: tfstate
+  - name: backend_key_prefix
+    type: string
+    default: statefiles
+
+# Vars the base template already reads
+variables:
+  env: ${{ parameters.environment }}
+  # your base template expects $(workingdir) relative to $(System.DefaultWorkingDirectory)
+  workingdir: 'workingdir'
+  # Pass env-specific tfvars and any other -var you need
+  commandOptions: >
+    -var-file=$(System.DefaultWorkingDirectory)\workingdir\env\${{ parameters.environment }}.tfvars
+    -var app=${{ parameters.app }}
+    -var env=${{ parameters.environment }}
+  backendServiceArm: ${{ parameters.service_connection_name }}
+
+# 1) Stage the working directory into $(System.DefaultWorkingDirectory)\workingdir
+stages:
+- stage: Setup
+  displayName: Stage TF working dir
+  jobs:
+  - job: Stage
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+      - checkout: none              # <-- no self
+      - checkout: tf_templates      # <-- only the templates repo
+
+      - script: |
+          echo Staging templates to $(System.DefaultWorkingDirectory)\workingdir
+          if exist "$(System.DefaultWorkingDirectory)\workingdir" rmdir /s /q "$(System.DefaultWorkingDirectory)\workingdir"
+          mkdir "$(System.DefaultWorkingDirectory)\workingdir"
+          xcopy /E /I /Y "$(Build.SourcesDirectory)\tf_templates\${{ parameters.subpath }}\${{ parameters.app }}" "$(System.DefaultWorkingDirectory)\workingdir"
+        displayName: "Copy app folder from templates repo"
+
+# 2) Reuse your existing template that already does Plan + Apply in one run
+#    (It will pick up $(workingdir), $(env), $(commandOptions), backend* vars above)
+- template: terraform-template.yml@tf_templates
+
+
+
+# Hi Brittany,
+
+# Thanks for following up, and my apologies for overlooking your first note. I am excited to complete the PSWP training. I can do this Friday, August 29, any time between 10:00 and 3:00 Central. Next week I am open Tuesday, September 2, 9:30 to 12:00 Central, and Wednesday, September 3, 1:00 to 4:00 Central. Please let me know what works best and if there is anything I should review ahead of time.
+
+# Thank you,
+# Shehzad

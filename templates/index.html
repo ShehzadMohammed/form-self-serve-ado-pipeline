@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self Serve ADO Template</title>
+    <style>
+        * { 
+            box-sizing: border-box; 
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 440px;
+            background: #1a1a1a;
+            border-radius: 20px;
+            border: 1px solid #2a2a2a;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header {
+            padding: 40px 40px 0;
+            text-align: center;
+        }
+        
+        .title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #fff 0%, #999 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 15px;
+            color: #999;
+            margin-bottom: 40px;
+        }
+        
+        .progress {
+            height: 2px;
+            background: #2a2a2a;
+            margin: 0 40px 40px;
+            border-radius: 1px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #fff 0%, #999 100%);
+            width: 20%;
+            transition: width 0.3s ease;
+        }
+        
+        .content {
+            padding: 0 40px 40px;
+        }
+        
+        .step {
+            display: none;
+            opacity: 0;
+        }
+        
+        .step.active {
+            display: block;
+            opacity: 1;
+            animation: fadeInUp 0.4s ease;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .question {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+        
+        .description {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 32px;
+        }
+        
+        .field-group {
+            margin-bottom: 32px;
+        }
+        
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #ccc;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        input, select {
+            width: 100%;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-size: 16px;
+            color: #fff;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #fff;
+            background: #333;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+        }
+        
+        input::placeholder {
+            color: #666;
+        }
+        
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23999' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 16px center;
+            background-repeat: no-repeat;
+            background-size: 16px;
+            padding-right: 48px;
+        }
+        
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 40px;
+        }
+        
+        button {
+            background: #fff;
+            color: #000;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 28px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        
+        button:hover {
+            background: #f0f0f0;
+            transform: translateY(-1px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .btn-ghost {
+            background: transparent;
+            color: #999;
+            border: 1px solid #3a3a3a;
+        }
+        
+        .btn-ghost:hover {
+            background: #2a2a2a;
+            color: #fff;
+            border-color: #4a4a4a;
+        }
+        
+        .step-indicator {
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .result {
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .success-icon {
+            width: 60px;
+            height: 60px;
+            background: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 24px;
+        }
+        
+        .yaml-container {
+            background: #111;
+            border: 1px solid #2a2a2a;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 24px 0;
+            text-align: left;
+        }
+        
+        .yaml-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        
+        .yaml-title {
+            font-size: 12px;
+            color: #999;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .yaml-output {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #ccc;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .yaml-output::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .yaml-output::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        
+        .yaml-output::-webkit-scrollbar-thumb {
+            background: #3a3a3a;
+            border-radius: 3px;
+        }
+        
+        /* Loading state */
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #666;
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container {
+                max-width: 100%;
+                margin: 0;
+                border-radius: 0;
+            }
+            
+            .header, .content, .result {
+                padding-left: 24px;
+                padding-right: 24px;
+            }
+            
+            .progress {
+                margin-left: 24px;
+                margin-right: 24px;
+            }
+        }
+        .mono {
+            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            white-space: pre;
+            overflow: auto;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 24px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: #1e293b;
+            max-height: 65vh;
+            font-weight: 450;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
+            position: relative;
+        }
+        .mono::before {
+            content: "YAML";
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+        .result-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 14px;
+            margin-top: 20px;
+        }
+        
+        /* Loading state */
+        .loading {
+            position: relative;
+            pointer-events: none;
+        }
+        .loading::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #1f2937;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Self Serve</h1>
+            <p class="subtitle">Azure DevOps Template Generator</p>
+        </div>
+        
+        <div class="progress">
+            <div class="progress-fill" id="progress"></div>
+        </div>
+        
+        <div class="content">
+            <form id="wizard-form">
+                <!-- Step 1: App Name -->
+                <div class="step active" data-step="1">
+                    <h2 class="question">Application name</h2>
+                    
+                    <div class="field-group">
+                        <label for="app_name">Unique Name for The Application</label>
+                        <input id="app_name" name="app_name" placeholder="my-web-app" required>
+                    </div>
+                    
+                    <div class="actions">
+                        <div class="step-indicator">1 of 5</div>
+                        <button type="button" onclick="nextStep()">Next</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Environment -->
+                <div class="step" data-step="2">
+                    <h2 class="question">Environment</h2>
+                    
+                    <div class="field-group">
+                        <label for="environment">Target environment</label>
+                        <select id="environment" name="environment" required>
+                            <option value="" disabled selected>Choose environment...</option>
+                            <option value="dev">Development</option>
+                            <option value="qa">QA</option>
+                            <option value="prod">Production</option>
+                        </select>
+                    </div>
+                    
+                    <div class="actions">
+                        <button type="button" class="btn-ghost" onclick="prevStep()">Back</button>
+                        <div class="step-indicator">2 of 5</div>
+                        <button type="button" onclick="nextStep()">Next</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: App Service Plan -->
+                <div class="step" data-step="3">
+                    <h2 class="question">App Service Plan</h2>
+                    
+                    <div class="field-group">
+                        <label for="app_service_plan_name">Select plan</label>
+                        <select id="app_service_plan_name" name="app_service_plan_name" required>
+                            <option value="" disabled selected>Loading plans...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="actions">
+                        <button type="button" class="btn-ghost" onclick="prevStep()">Back</button>
+                        <div class="step-indicator">3 of 5</div>
+                        <button type="button" onclick="nextStep()">Next</button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Docker -->
+                <div class="step" data-step="4">
+                    <h2 class="question">Docker image</h2>
+                    
+                    <div class="field-group">
+                        <label for="docker_image_name">Image</label>
+                        <input id="docker_image_name" name="docker_image_name" placeholder="myapp:latest" required>
+                    </div>
+                    
+                    <div class="field-group">
+                        <label for="docker_registry_url">Registry</label>
+                        <input id="docker_registry_url" name="docker_registry_url" value="acr.azurecr.io">
+                    </div>
+                    
+                    <div class="actions">
+                        <button type="button" class="btn-ghost" onclick="prevStep()">Back</button>
+                        <div class="step-indicator">4 of 5</div>
+                        <button type="button" onclick="nextStep()">Next</button>
+                    </div>
+                </div>
+
+                <!-- Step 5: Tags -->
+                <div class="step" data-step="5">
+                    <h2 class="question">Tags</h2>
+                    
+                    <div class="field-group">
+                        <label for="tags">Metadata (optional)</label>
+                        <input id="tags" name="tags" placeholder='{"team": "platform"}' value='{}'>
+                    </div>
+                    
+                    <div class="actions">
+                        <button type="button" class="btn-ghost" onclick="prevStep()">Back</button>
+                        <div class="step-indicator">5 of 5</div>
+                        <button type="button" onclick="generateTemplate()">Generate</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Result -->
+        <div id="result" class="result step" data-step="result">
+            <div class="yaml-container">
+                <div class="yaml-header">
+                    <span class="yaml-title">Azure DevOps YAML</span>
+                </div>
+                <div class="yaml-output" id="yaml-output"></div>
+            </div>
+            
+            <button type="button" class="btn-ghost" onclick="startOver()">Create another</button>
+        </div>
+    </div>
+
+<script>
+    let currentStep = 1;
+    const totalSteps = 5;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadPlans();
+        updateProgress();
+        
+        // Listen for environment changes
+        document.getElementById('environment').addEventListener('change', function() {
+            loadPlans(this.value);
+        });
+    });
+
+    async function loadPlans(environment = null) {
+        try {
+            const url = environment ? `/api/app-service-plans/${environment}` : '/api/app-service-plans';
+            const res = await fetch(url);
+            const plans = await res.json();
+            const select = document.getElementById('app_service_plan_name');
+            select.innerHTML = '<option value="" disabled selected>Choose plan...</option>';
+            plans.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify({ name: p.name, resource_group: p.resource_group });
+                opt.textContent = `${p.name} (${p.sku}) - ${p.location}`;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to load plans', e);
+            const select = document.getElementById('app_service_plan_name');
+            select.innerHTML = '<option value="" disabled selected>Failed to load plans</option>';
+        }
+    }
+
+    function nextStep() {
+        if (!validateStep()) return;
+        if (currentStep < totalSteps) {
+            currentStep++;
+            showStep(currentStep);
+            updateProgress();
+        }
+    }
+
+    function prevStep() {
+        if (currentStep > 1) {
+            currentStep--;
+            showStep(currentStep);
+            updateProgress();
+        }
+    }
+
+    function showStep(step) {
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        document.querySelector(`[data-step="${step}"]`).classList.add('active');
+    }
+
+    function updateProgress() {
+        const progress = (currentStep / totalSteps) * 100;
+        document.getElementById('progress').style.width = progress + '%';
+    }
+
+    function validateStep() {
+        const step = document.querySelector(`[data-step="${currentStep}"]`);
+        const required = step.querySelectorAll('[required]');
+        for (const el of required) {
+            if (!el.value || !String(el.value).trim()) { 
+                el.focus(); 
+                return false; 
+            }
+        }
+        return true;
+    }
+
+    async function generateTemplate() {
+        if (!validateStep()) return;
+        
+        // Show loading state
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.innerHTML = '<span class="spinner"></span>Generating...';
+        btn.classList.add('loading');
+        
+        const fd = new FormData();
+        fd.append('app_name', document.getElementById('app_name').value);
+        fd.append('environment', document.getElementById('environment').value);
+        const plan = JSON.parse(document.getElementById('app_service_plan_name').value);
+        fd.append('app_service_plan_name', plan.name);
+        fd.append('app_service_plan_resource_group', plan.resource_group);
+        fd.append('docker_image_name', document.getElementById('docker_image_name').value);
+        fd.append('docker_registry_url', document.getElementById('docker_registry_url').value);
+        fd.append('tags', document.getElementById('tags').value);
+        
+        try {
+            const res = await fetch('/generate', { method: 'POST', body: fd });
+            const out = await res.json();
+            if (!out.success) throw new Error(out.error || 'Failed');
+            
+            // Small delay for smooth transition
+            setTimeout(() => {
+                document.getElementById('yaml-output').textContent = out.template;
+                document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+                document.querySelector('[data-step="result"]').classList.add('active');
+            }, 500);
+            
+        } catch (e) {
+            btn.textContent = originalText;
+            btn.classList.remove('loading');
+            alert('Unable to generate template: ' + e.message);
+            console.error(e);
+        }
+    }
+
+    function startOver() {
+        document.getElementById('wizard-form').reset();
+        currentStep = 1;
+        showStep(1);
+        updateProgress();
+        // Reload plans
+        loadPlans();
+    }
+</script>
+</body>
+</html>
