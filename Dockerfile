@@ -1,8 +1,8 @@
 # Use Windows Server Core as base image
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
-# Set shell to PowerShell
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+# Set shell to cmd
+SHELL ["cmd", "/S", "/C"]
 
 # Create app directory
 WORKDIR C:\\app
@@ -11,15 +11,12 @@ WORKDIR C:\\app
 # Download from: https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
 COPY python-3.11.9-amd64.exe C:\\temp\\python-installer.exe
 
-# Install Python silently
-RUN Start-Process -FilePath 'C:\temp\python-installer.exe' -ArgumentList '/quiet', 'InstallAllUsers=1', 'PrependPath=1', 'Include_test=0' -Wait; \
-    Remove-Item 'C:\temp\python-installer.exe' -Force
+# Install Python silently using cmd
+RUN C:\temp\python-installer.exe /quiet InstallAllUsers=1 PrependPath=1 Include_test=0 && \
+    del C:\temp\python-installer.exe
 
-# Add Python to PATH
-RUN setx PATH $($Env:PATH + ';C:\Program Files\Python311;C:\Program Files\Python311\Scripts') /M
-
-# Refresh environment variables
-RUN refreshenv
+# Update PATH for current and future sessions
+ENV PATH="C:\Program Files\Python311;C:\Program Files\Python311\Scripts;C:\Windows\system32;C:\Windows"
 
 # Copy requirements and download wheels offline
 # Note: You need to download wheel files beforehand using:
@@ -28,7 +25,7 @@ COPY wheels/ C:\\app\\wheels\\
 COPY requirements.txt C:\\app\\
 
 # Install packages from local wheels (no internet required)
-RUN python -m pip install --no-index --find-links C:\app\wheels\ -r requirements.txt
+RUN python -m pip install --no-index --find-links C:\app\wheels -r requirements.txt
 
 # Copy application files
 COPY . C:\\app\\
