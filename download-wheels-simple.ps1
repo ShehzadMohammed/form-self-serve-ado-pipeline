@@ -1,50 +1,59 @@
-# Simple wheel download script
-Write-Host "Downloading all wheels for offline installation..." -ForegroundColor Green
+# Download wheels for offline Docker build
+Write-Host "=== Preparing Offline Build ===" -ForegroundColor Green
+Write-Host ""
 
 # Clean and create wheels directory
 if (Test-Path "wheels") {
+    Write-Host "Cleaning existing wheels directory..." -ForegroundColor Yellow
     Remove-Item "wheels" -Recurse -Force
 }
-New-Item -ItemType Directory -Name "wheels"
+New-Item -ItemType Directory -Name "wheels" | Out-Null
 
-# Download Python installer if not exists
+# Download Python installer if needed
 $pythonInstaller = "python-3.11.9-amd64.exe"
 if (!(Test-Path $pythonInstaller)) {
     Write-Host "Downloading Python installer..." -ForegroundColor Yellow
     $url = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
-    Invoke-WebRequest -Uri $url -OutFile $pythonInstaller
-}
-
-# Download wheels using the comprehensive requirements
-Write-Host "Downloading wheels..." -ForegroundColor Yellow
-
-# First try to download platform-specific wheels (faster, no compilation needed)
-Write-Host "Attempting to download pre-compiled wheels for Windows..." -ForegroundColor Cyan
-pip download -r requirements-full.txt -d wheels/ --platform win_amd64 --only-binary=:all: --prefer-binary
-
-# If that fails, download with compilation support
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Pre-compiled wheels not available for some packages, downloading with source support..." -ForegroundColor Yellow
-    pip download -r requirements-full.txt -d wheels/ --prefer-binary
-}
-
-# Download Visual Studio Build Tools installer if cffi compilation might be needed
-$buildToolsInstaller = "vs_buildtools.exe"
-if (!(Test-Path $buildToolsInstaller)) {
-    Write-Host "Downloading Visual Studio Build Tools (needed for cffi compilation)..." -ForegroundColor Yellow
-    $buildToolsUrl = "https://aka.ms/vs/17/release/vs_buildtools.exe"
     try {
-        Invoke-WebRequest -Uri $buildToolsUrl -OutFile $buildToolsInstaller
-        Write-Host "Build tools downloaded successfully" -ForegroundColor Green
+        Invoke-WebRequest -Uri $url -OutFile $pythonInstaller
+        Write-Host "✓ Python installer downloaded" -ForegroundColor Green
     } catch {
-        Write-Host "Warning: Could not download build tools. Manual download may be required." -ForegroundColor Yellow
+        Write-Host "✗ Failed to download Python installer" -ForegroundColor Red
+        exit 1
     }
+} else {
+    Write-Host "✓ Python installer already exists" -ForegroundColor Green
 }
 
-Write-Host "Download complete!" -ForegroundColor Green
-Write-Host "Wheels directory contains:" -ForegroundColor Cyan
-Get-ChildItem wheels/ | Measure-Object | ForEach-Object { Write-Host "  $($_.Count) wheel files" }
+# Download wheels for offline installation
+Write-Host "Downloading wheels for offline installation..." -ForegroundColor Yellow
+
+try {
+    # Download wheels for Windows platform
+    pip download -r requirements-full.txt -d wheels/ --platform win_amd64 --prefer-binary
+    
+    # Also download any source packages as fallback
+    pip download -r requirements-full.txt -d wheels/ --prefer-binary
+    
+    $wheelCount = (Get-ChildItem wheels/ -Filter "*.whl").Count
+    Write-Host "✓ Downloaded $wheelCount wheel files" -ForegroundColor Green
+    
+} catch {
+    Write-Host "✗ Failed to download wheels" -ForegroundColor Red
+    exit 1
+}
 
 Write-Host ""
-Write-Host "Build the Docker image with:" -ForegroundColor Yellow
+Write-Host "=== Offline Build Ready! ===" -ForegroundColor Green
+Write-Host "Build the Docker image with:" -ForegroundColor Cyan
 Write-Host "  docker build -t self-serve-ado ." -ForegroundColor White
+Write-Host ""
+Write-Host "Or for local development:" -ForegroundColor Yellow
+Write-Host "  pip install -r requirements.txt" -ForegroundColor White
+Write-Host "  python server.py" -ForegroundColor White
+Write-Host ""
+
+Write-Host "Files ready for offline deployment:" -ForegroundColor Cyan
+Write-Host "  ✓ Python installer: $pythonInstaller" -ForegroundColor Gray
+Write-Host "  ✓ Wheel files: wheels/ directory" -ForegroundColor Gray
+Write-Host "  ✓ Requirements: requirements-full.txt" -ForegroundColor Gray

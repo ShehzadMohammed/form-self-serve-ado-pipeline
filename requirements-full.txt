@@ -1,18 +1,13 @@
 # Core dependencies
 Flask==2.3.3
-azure-identity==1.15.0
-azure-mgmt-web==2.0.0
-azure-mgmt-resource==23.0.1
+requests>=2.28.0
 
 # Build tools
 pip>=23.0
 setuptools>=65.0
 wheel>=0.38.0
 
-# Cryptography dependencies (Windows specific)
-cffi>=1.15.0,<1.17.0  # More specific version range for better compatibility
-pycparser>=2.20,<2.22
-cryptography>=3.4.8,<42.0.0
+# Pure Python only - no C compilation needed
 
 # Flask dependencies
 Werkzeug>=2.3.0

@@ -1,20 +1,15 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify
 import json
 import os
+import requests
+import subprocess
 from datetime import datetime
-from azure.identity import DefaultAzureCredential
-from azure.mgmt.web import WebSiteManagementClient
-from azure.mgmt.resource import ResourceManagementClient
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
-# Azure configuration - different subscriptions per environment
-SUBSCRIPTION_IDS = {
-    'dev': os.environ.get('AZURE_DEV_SUBSCRIPTION_ID'),
-    'qa': os.environ.get('AZURE_QA_SUBSCRIPTION_ID'), 
-    'prod': os.environ.get('AZURE_PROD_SUBSCRIPTION_ID')
-}
+# Azure configuration - single subscription, filter by tags
+SUBSCRIPTION_ID = os.environ.get('AZURE_SUBSCRIPTION_ID')
 
 # Environment mappings
 ENVIRONMENTS = ['dev', 'qa', 'prod']
@@ -43,36 +38,89 @@ VNET_CONFIG = {
     }
 }
 
-def get_app_service_plans_from_azure(environment=None):
-    """Get actual App Service Plans from Azure using environment-specific subscription"""
+def get_azure_access_token():
+    """Get Azure access token using Azure CLI"""
     try:
-        # Get the subscription ID for the specific environment
-        if not environment or environment not in SUBSCRIPTION_IDS:
-            raise Exception(f"Environment '{environment}' not supported or not specified")
-            
-        subscription_id = SUBSCRIPTION_IDS[environment]
-        if not subscription_id:
-            raise Exception(f"No subscription ID configured for environment: {environment}")
-            
-        credential = DefaultAzureCredential()
-        web_client = WebSiteManagementClient(credential, subscription_id)
-        
-        plans = []
-        for plan in web_client.app_service_plans.list():
-            # Get all plans from the environment-specific subscription
-            plans.append({
-                'name': plan.name,
-                'resource_group': plan.id.split('/')[4],
-                'sku': plan.sku.name,
-                'location': plan.location
-            })
-        return plans
+        result = subprocess.run(['az', 'account', 'get-access-token'], 
+                              capture_output=True, text=True, check=True)
+        token_data = json.loads(result.stdout)
+        return token_data['accessToken']
     except Exception as e:
-        print(f"Error fetching App Service Plans for environment {environment}: {e}")
-        # Return single dummy plan on exception
-        return [
-            {'name': 'dummy', 'resource_group': 'dummy-rg', 'sku': 'B1', 'location': 'East US'}
-        ]
+        print(f"Error getting Azure access token: {e}")
+        return None
+
+def get_app_service_plans_from_azure(environment=None):
+    """Get App Service Plans from Azure filtered by environment tags (with offline fallback)"""
+    
+    # Check if running in offline mode (Docker container or no Azure setup)
+    offline_mode = not SUBSCRIPTION_ID or os.environ.get('OFFLINE_MODE', 'false').lower() == 'true'
+    
+    if not offline_mode:
+        try:
+            # Get access token using Azure CLI
+            access_token = get_azure_access_token()
+            if not access_token:
+                raise Exception("Could not get Azure access token")
+                
+            # Call Azure REST API to get App Service Plans
+            url = f"https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/providers/Microsoft.Web/serverfarms"
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            }
+            params = {'api-version': '2022-03-01'}
+            
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+            response.raise_for_status()
+            
+            data = response.json()
+            plans = []
+            
+            for plan in data.get('value', []):
+                # Extract resource group from the id
+                resource_group = plan['id'].split('/')[4]
+                
+                # Get the tags for this plan
+                plan_tags = plan.get('tags', {})
+                plan_env = plan_tags.get('env', '').lower()
+                
+                # Filter by environment if specified
+                if environment and plan_env != environment.lower():
+                    continue
+                    
+                plans.append({
+                    'name': plan['name'],
+                    'resource_group': resource_group,
+                    'sku': plan.get('sku', {}).get('name', 'Unknown'),
+                    'location': plan['location'],
+                    'env': plan_env,
+                    'tags': plan_tags
+                })
+            
+            # If we got real data, return it
+            if plans:
+                return plans
+            elif environment:
+                print(f"No App Service Plans found with env tag '{environment}' in subscription {SUBSCRIPTION_ID}")
+            
+        except Exception as e:
+            print(f"Error fetching App Service Plans for environment {environment}: {e}")
+            print("Falling back to offline mode...")
+    
+    # Fallback to dummy plans (for offline mode or Azure API failures)
+    print(f"Using offline/demo data for environment: {environment or 'all'}")
+    dummy_plans = [
+        {'name': 'demo-plan-dev', 'resource_group': 'demo-rg', 'sku': 'B1', 'location': 'East US', 'env': 'dev', 'tags': {'env': 'dev', 'mode': 'demo'}},
+        {'name': 'demo-plan-qa', 'resource_group': 'demo-rg', 'sku': 'B1', 'location': 'East US', 'env': 'qa', 'tags': {'env': 'qa', 'mode': 'demo'}},
+        {'name': 'demo-plan-prod', 'resource_group': 'demo-rg', 'sku': 'P1v3', 'location': 'East US', 'env': 'prod', 'tags': {'env': 'prod', 'mode': 'demo'}}
+    ]
+    
+    if environment:
+        # Filter dummy plans by environment
+        filtered_plans = [plan for plan in dummy_plans if plan['env'] == environment.lower()]
+        return filtered_plans if filtered_plans else [dummy_plans[0]]
+    
+    return dummy_plans
 
 @app.route('/')
 def index():
