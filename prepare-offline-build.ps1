@@ -29,13 +29,28 @@ if (Test-Path "wheels") {
     Write-Host "Cleaned existing wheels directory" -ForegroundColor Yellow
 }
 
-# Download all dependencies including transitive ones
-pip download -r requirements.txt -d wheels/ --platform win_amd64 --only-binary=:all:
-Write-Host "Downloaded wheels for Windows AMD64 platform" -ForegroundColor Green
+# First, download essential build tools
+Write-Host "Downloading build tools..." -ForegroundColor Yellow
+pip download pip setuptools wheel -d wheels/
 
-# Also download source packages as fallback
-Write-Host "Downloading additional dependencies..." -ForegroundColor Yellow
-pip download -r requirements.txt -d wheels/
+# Download all dependencies with all transitive dependencies
+Write-Host "Downloading application dependencies..." -ForegroundColor Yellow
+pip download -r requirements.txt -d wheels/ --no-deps
+pip download Flask azure-identity azure-mgmt-web azure-mgmt-resource -d wheels/
+pip download cryptography cffi pycparser -d wheels/
+
+# Download any missing dependencies by installing in a temp venv and capturing all wheels
+Write-Host "Ensuring all transitive dependencies..." -ForegroundColor Yellow
+$tempVenv = "temp_venv_for_deps"
+python -m venv $tempVenv
+& ".\$tempVenv\Scripts\activate.ps1"
+pip install -r requirements.txt
+pip freeze | ForEach-Object { 
+    $package = $_.Split('==')[0]
+    pip download $package -d wheels/ --no-deps
+}
+deactivate
+Remove-Item $tempVenv -Recurse -Force
 
 Write-Host "Offline build preparation complete!" -ForegroundColor Green
 Write-Host ""

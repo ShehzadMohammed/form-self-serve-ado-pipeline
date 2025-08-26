@@ -22,13 +22,10 @@ ENV PATH="C:\Program Files\Python311;C:\Program Files\Python311\Scripts;C:\Windo
 # Note: You need to download wheel files beforehand using:
 # pip download -r requirements.txt -d wheels/
 COPY wheels/ C:\\app\\wheels\\
-COPY requirements.txt C:\\app\\
+COPY requirements-full.txt C:\\app\\
 
-# Upgrade pip first
-RUN python -m pip install --upgrade --no-index --find-links C:\app\wheels pip
-
-# Install packages from local wheels (no internet required)
-RUN python -m pip install --no-index --find-links C:\app\wheels -r requirements.txt --force-reinstall
+# Install all packages from local wheels
+RUN python -m pip install --no-index --find-links C:\app\wheels -r requirements-full.txt
 
 # Copy application files
 COPY . C:\\app\\
