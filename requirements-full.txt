@@ -10,9 +10,9 @@ setuptools>=65.0
 wheel>=0.38.0
 
 # Cryptography dependencies (Windows specific)
-cffi>=1.14.0
-pycparser>=2.20
-cryptography>=3.4.8
+cffi>=1.15.0,<1.17.0  # More specific version range for better compatibility
+pycparser>=2.20,<2.22
+cryptography>=3.4.8,<42.0.0
 
 # Flask dependencies
 Werkzeug>=2.3.0

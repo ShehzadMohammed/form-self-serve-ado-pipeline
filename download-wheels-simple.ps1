@@ -17,8 +17,29 @@ if (!(Test-Path $pythonInstaller)) {
 
 # Download wheels using the comprehensive requirements
 Write-Host "Downloading wheels..." -ForegroundColor Yellow
-pip download -r requirements-full.txt -d wheels/ --platform win_amd64 --no-deps
-pip download -r requirements-full.txt -d wheels/
+
+# First try to download platform-specific wheels (faster, no compilation needed)
+Write-Host "Attempting to download pre-compiled wheels for Windows..." -ForegroundColor Cyan
+pip download -r requirements-full.txt -d wheels/ --platform win_amd64 --only-binary=:all: --prefer-binary
+
+# If that fails, download with compilation support
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Pre-compiled wheels not available for some packages, downloading with source support..." -ForegroundColor Yellow
+    pip download -r requirements-full.txt -d wheels/ --prefer-binary
+}
+
+# Download Visual Studio Build Tools installer if cffi compilation might be needed
+$buildToolsInstaller = "vs_buildtools.exe"
+if (!(Test-Path $buildToolsInstaller)) {
+    Write-Host "Downloading Visual Studio Build Tools (needed for cffi compilation)..." -ForegroundColor Yellow
+    $buildToolsUrl = "https://aka.ms/vs/17/release/vs_buildtools.exe"
+    try {
+        Invoke-WebRequest -Uri $buildToolsUrl -OutFile $buildToolsInstaller
+        Write-Host "Build tools downloaded successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "Warning: Could not download build tools. Manual download may be required." -ForegroundColor Yellow
+    }
+}
 
 Write-Host "Download complete!" -ForegroundColor Green
 Write-Host "Wheels directory contains:" -ForegroundColor Cyan
