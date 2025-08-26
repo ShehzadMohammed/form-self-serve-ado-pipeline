@@ -22,7 +22,19 @@ if (!(Test-Path $pythonInstaller)) {
 
 # Download Python wheels for offline installation
 Write-Host "Downloading Python package wheels..." -ForegroundColor Yellow
-pip download -r requirements.txt -d wheels/ --no-deps
+
+# Clean wheels directory first
+if (Test-Path "wheels") {
+    Remove-Item "wheels/*" -Recurse -Force
+    Write-Host "Cleaned existing wheels directory" -ForegroundColor Yellow
+}
+
+# Download all dependencies including transitive ones
+pip download -r requirements.txt -d wheels/ --platform win_amd64 --only-binary=:all:
+Write-Host "Downloaded wheels for Windows AMD64 platform" -ForegroundColor Green
+
+# Also download source packages as fallback
+Write-Host "Downloading additional dependencies..." -ForegroundColor Yellow
 pip download -r requirements.txt -d wheels/
 
 Write-Host "Offline build preparation complete!" -ForegroundColor Green

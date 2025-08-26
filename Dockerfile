@@ -24,8 +24,11 @@ ENV PATH="C:\Program Files\Python311;C:\Program Files\Python311\Scripts;C:\Windo
 COPY wheels/ C:\\app\\wheels\\
 COPY requirements.txt C:\\app\\
 
+# Upgrade pip first
+RUN python -m pip install --upgrade --no-index --find-links C:\app\wheels pip
+
 # Install packages from local wheels (no internet required)
-RUN python -m pip install --no-index --find-links C:\app\wheels -r requirements.txt
+RUN python -m pip install --no-index --find-links C:\app\wheels -r requirements.txt --force-reinstall
 
 # Copy application files
 COPY . C:\\app\\
