@@ -1,14 +1,8 @@
-# azure-pipelines.yml (universal wrapper)
-# - does NOT checkout self
-# - stages TF code from the templates repo into $(System.DefaultWorkingDirectory)\workingdir
-# - injects the <env>.tfvars automatically
-# - reuses your existing terraform-template.yml (which already has Plan + Apply)
-
 resources:
   repositories:
     - repository: tf_templates
       type: git
-      name: <ProjectName>/<TemplatesRepo>     # e.g., Infra/Templates
+      name: <ProjectName>/<TemplatesRepo>
       ref: refs/heads/main
 
 parameters:
@@ -21,68 +15,120 @@ parameters:
     type: string
     default: webapp01
 
-  # Where the TF code lives inside the templates repo
   - name: subpath
     type: string
-    default: terraform-templates/appservices   # keeps the “appservices” layout you showed
+    default: terraform-template/appservices
 
-  # Backend / svc conn (optional; keep same names your base template expects)
+  - name: app_service_plan_name
+    type: string
+    default: 'demo-plan-${{ parameters.environment }}'
+
+  - name: app_service_plan_resource_group
+    type: string
+    default: 'demo-rg'
+
+  - name: virtual_network_name
+    type: string
+    default: '${{ parameters.environment }}-vnet'
+
+  - name: virtual_networks_resource_group_name
+    type: string
+    default: '${{ parameters.environment }}-network-rg'
+
+  - name: subnet_name
+    type: string
+    default: 'app-subnet'
+
+  - name: docker_image_name
+    type: string
+    default: 'myapp:latest'
+
+  - name: docker_registry_url
+    type: string
+    default: 'myacr.azurecr.io'
+
   - name: service_connection_name
     type: string
     default: <Your-Service-Connection>
+
+  - name: backend_service_connection_name
+    type: string
+    default: <Your-Backend-Service-Connection>
+
   - name: backend_rg
     type: string
     default: tfstate-rg
+
   - name: backend_storage
     type: string
     default: tfstateprod
+
   - name: backend_container
     type: string
     default: tfstate
+
   - name: backend_key_prefix
     type: string
     default: statefiles
 
-# Vars the base template already reads
 variables:
-  env: ${{ parameters.environment }}
-  # your base template expects $(workingdir) relative to $(System.DefaultWorkingDirectory)
-  workingdir: 'workingdir'
-  # Pass env-specific tfvars and any other -var you need
+  infraenv: ${{ if eq(parameters.environment, 'prod') }}${{ 'prod' }}${{ else }}${{ 'nonprod' }}
+  workingdir: 'terraform'
   commandOptions: >
-    -var-file=$(System.DefaultWorkingDirectory)\workingdir\env\${{ parameters.environment }}.tfvars
-    -var app=${{ parameters.app }}
-    -var env=${{ parameters.environment }}
-  backendServiceArm: ${{ parameters.service_connection_name }}
+    -var="app=${{ parameters.app }}"
+    -var="env=${{ parameters.environment }}"
+    -var="infraenv=$(infraenv)"
+    -var="app_service_plan_name=${{ parameters.app_service_plan_name }}"
+    -var="app_service_plan_resource_group=${{ parameters.app_service_plan_resource_group }}"
+    -var="virtual_network_name=${{ parameters.virtual_network_name }}"
+    -var="virtual_networks_resource_group_name=${{ parameters.virtual_networks_resource_group_name }}"
+    -var="subnet_name=${{ parameters.subnet_name }}"
+    -var="docker_image_name=${{ parameters.docker_image_name }}"
+    -var="docker_registry_url=${{ parameters.docker_registry_url }}"
+  backendAzureRmKey: '${{ parameters.backend_key_prefix }}/${{ parameters.app }}-${{ parameters.environment }}.tfstate'
 
-# 1) Stage the working directory into $(System.DefaultWorkingDirectory)\workingdir
 stages:
-- stage: Setup
-  displayName: Stage TF working dir
+- stage: TerraformDeploy
+  displayName: Deploy with Terraform
   jobs:
-  - job: Stage
+  - job: RunTerraform
     pool:
       vmImage: 'windows-latest'
     steps:
-      - checkout: none              # <-- no self
-      - checkout: tf_templates      # <-- only the templates repo
+      - checkout: self
+        path: s/self
+        persistCredentials: true
+
+      - checkout: tf_templates
+        path: s/templates
+        persistCredentials: true
 
       - script: |
-          echo Staging templates to $(System.DefaultWorkingDirectory)\workingdir
-          if exist "$(System.DefaultWorkingDirectory)\workingdir" rmdir /s /q "$(System.DefaultWorkingDirectory)\workingdir"
-          mkdir "$(System.DefaultWorkingDirectory)\workingdir"
-          xcopy /E /I /Y "$(Build.SourcesDirectory)\tf_templates\${{ parameters.subpath }}\${{ parameters.app }}" "$(System.DefaultWorkingDirectory)\workingdir"
-        displayName: "Copy app folder from templates repo"
+          xcopy /E /I /Y "$(Pipeline.Workspace)\s\templates\${{ parameters.subpath }}" "$(Pipeline.Workspace)\s\self\$(workingdir)"
+          echo ##vso[task.setvariable variable=System.DefaultWorkingDirectory]$(Pipeline.Workspace)/s/self
+        displayName: "Copy Terraform Code"
 
-# 2) Reuse your existing template that already does Plan + Apply in one run
-#    (It will pick up $(workingdir), $(env), $(commandOptions), backend* vars above)
-- template: terraform-template.yml@tf_templates
-
-
-
-# Hi Brittany,
-
-# Thanks for following up, and my apologies for overlooking your first note. I am excited to complete the PSWP training. I can do this Friday, August 29, any time between 10:00 and 3:00 Central. Next week I am open Tuesday, September 2, 9:30 to 12:00 Central, and Wednesday, September 3, 1:00 to 4:00 Central. Please let me know what works best and if there is anything I should review ahead of time.
-
-# Thank you,
-# Shehzad
+      - template: terraform-template.yml@tf_templates
+        parameters:
+          environment: ${{ parameters.environment }}
+          env: ${{ parameters.environment }}
+          infraenv: $(infraenv)
+          app: ${{ parameters.app }}
+          service_connection_name: ${{ parameters.service_connection_name }}
+          backend_service_connection_name: ${{ parameters.backend_service_connection_name }}
+          workingdir: $(workingdir)
+          commandOptions: $(commandOptions)
+          backendServiceArm: ${{ parameters.backend_service_connection_name }}
+          backendType: azurerm
+          backendAzureRmResourceGroupName: ${{ parameters.backend_rg }}
+          backendAzureRmStorageAccountName: ${{ parameters.backend_storage }}
+          backendAzureRmContainerName: ${{ parameters.backend_container }}
+          backendAzureRmKey: $(backendAzureRmKey)
+          app_service_plan_name: ${{ parameters.app_service_plan_name }}
+          app_service_plan_resource_group: ${{ parameters.app_service_plan_resource_group }}
+          virtual_network_name: ${{ parameters.virtual_network_name }}
+          virtual_networks_resource_group_name: ${{ parameters.virtual_networks_resource_group_name }}
+          subnet_name: ${{ parameters.subnet_name }}
+          docker_image_name: ${{ parameters.docker_image_name }}
+          docker_registry_url: ${{ parameters.docker_registry_url }}
+          tags: '{}'
